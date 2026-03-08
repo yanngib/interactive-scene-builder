@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>React Scene Builder</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        #root {
+            width: 100%;
+            max-width: 900px;
+            text-align: center;
+        }
+        .app-container {
+            background: #fff;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #1c1e21;
+            margin-bottom: 1.5rem;
+        }
+        .controls {
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .controls input {
+            padding: 0.8rem;
+            font-size: 1rem;
+            border: 1px solid #dddfe2;
+            border-radius: 6px;
+            width: 60%;
+        }
+        .controls button {
+            padding: 0.8rem 1.5rem;
+            font-size: 1rem;
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .controls button:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+        .controls button:hover {
+            background-color: #166fe5;
+        }
+        .scene-frame {
+            width: 100%;
+            height: 500px;
+            border: 3px solid #ccc;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            background-color: #e9f5ff;
+        }
+        .draggable-image-container {
+            position: absolute;
+            /* This container will now handle positioning */
+        }
+        .draggable-image {
+            cursor: grab;
+            user-select: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            /* The image itself doesn't need position: absolute anymore */
+        }
+        .draggable-image:active {
+            cursor: grabbing;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        .delete-button {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #ff4d4d;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 24px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+    </style>
+    <!-- React and Babel for JSX in the browser -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+
+        // Draggable Image Component
+        const DraggableImage = ({ element, onDelete, onPositionChange }) => {
+            const [isDragging, setIsDragging] = useState(false);
+            const dragOffset = useRef({ x: 0, y: 0 });
+            const elementRef = useRef(null);
+
+            const handleMouseDown = (e) => {
+                setIsDragging(true);
+                const rect = elementRef.current.getBoundingClientRect();
+                dragOffset.current = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top,
+                };
+                e.preventDefault();
+            };
+
+            const handleMouseMove = (e) => {
+                if (!isDragging) return;
+                const parentRect = elementRef.current.parentElement.getBoundingClientRect();
+                let newX = e.clientX - parentRect.left - dragOffset.current.x;
+                let newY = e.clientY - parentRect.top - dragOffset.current.y;
+
+                // Constrain to parent bounds
+                newX = Math.max(0, Math.min(newX, parentRect.width - elementRef.current.offsetWidth));
+                newY = Math.max(0, Math.min(newY, parentRect.height - elementRef.current.offsetHeight));
+
+                onPositionChange(element.id, { x: newX, y: newY });
+            };
+
+            const handleMouseUp = () => {
+                setIsDragging(false);
+            };
+
+            useEffect(() => {
+                if (isDragging) {
+                    window.addEventListener('mousemove', handleMouseMove);
+                    window.addEventListener('mouseup', handleMouseUp);
+                }
+                return () => {
+                    window.removeEventListener('mousemove', handleMouseMove);
+                    window.removeEventListener('mouseup', handleMouseUp);
+                };
+            }, [isDragging]);
+
+            return (
+                <div
+                    ref={elementRef}
+                    className="draggable-image-container"
+                    style={{ left: `${element.x}px`, top: `${element.y}px` }}
+                    onMouseDown={handleMouseDown}
+                >
+                    <img
+                        src={element.src}
+                        alt={element.name}
+                        className="draggable-image"
+                    />
+                    <button className="delete-button" onClick={onDelete}>&times;</button>
+                </div>
+            );
+        };
+
+        // Main App Component
+        const App = () => {
+            const [elements, setElements] = useState([]);
+            const [inputValue, setInputValue] = useState('');
+            const [isLoading, setIsLoading] = useState(false);
+
+            // Load scene from localStorage on initial render
+            useEffect(() => {
+                const savedScene = localStorage.getItem('react-scene-builder-scene');
+                if (savedScene) {
+                    setElements(JSON.parse(savedScene));
+                }
+            }, []);
+
+            const addElement = () => {
+                if (!inputValue.trim() || isLoading) return;
+
+                setIsLoading(true);
+
+                const newElement = {
+                    id: Date.now(),
+                    name: inputValue,
+                    // Use the Unsplash Source API, adding "nano,banana" to the query
+                    // to generate images with that theme, now twice as large.
+                    src: `https://source.unsplash.com/300x300/?nano,banana,${encodeURIComponent(inputValue)}`,
+                    x: Math.random() * 500, // Adjusted for larger image width
+                    y: Math.random() * 200, // Adjusted for larger image height
+                };
+                setElements([...elements, newElement]);
+                setInputValue('');
+
+                // A simple way to handle loading state. For a real app, you might
+                // wait for the image to actually load before setting isLoading to false.
+                setTimeout(() => setIsLoading(false), 1000); // Reset loading after a short delay
+            };
+
+            const deleteElement = (idToDelete) => {
+                setElements(elements.filter(el => el.id !== idToDelete));
+            };
+
+            const updateElementPosition = (id, newPosition) => {
+                setElements(currentElements =>
+                    currentElements.map(el =>
+                        el.id === id ? { ...el, x: newPosition.x, y: newPosition.y } : el
+                    )
+                );
+            };
+
+            const saveScene = () => {
+                localStorage.setItem('react-scene-builder-scene', JSON.stringify(elements));
+                alert('Scene saved!');
+            };
+
+            const loadScene = () => {
+                const savedScene = localStorage.getItem('react-scene-builder-scene');
+                if (savedScene) {
+                    setElements(JSON.parse(savedScene));
+                    alert('Scene loaded!');
+                } else {
+                    alert('No saved scene found.');
+                }
+            };
+
+            const resetScene = () => {
+                if (window.confirm("Are you sure you want to reset the scene? This will remove all elements and cannot be undone.")) {
+                    setElements([]);
+                    localStorage.removeItem('react-scene-builder-scene');
+                    alert('Scene has been reset.');
+                }
+            };
+
+            return (
+                <div className="app-container">
+                    <h1>Interactive Scene Builder</h1>
+                    <div className="controls">
+                        <input
+                            type="text"
+                            aria-label="Element to add"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            placeholder="e.g., a sun, a house, a tree"
+                            onKeyPress={(e) => e.key === 'Enter' && addElement()}
+                        />
+                        <button onClick={addElement} disabled={isLoading}>
+                            {isLoading ? 'Adding...' : 'Add Element'}
+                        </button>
+                        <button onClick={saveScene}>Save Scene</button>
+                        <button onClick={loadScene}>Load Scene</button>
+                        <button onClick={resetScene}>Reset Scene</button>
+                    </div>
+                    <div className="scene-frame">
+                        {elements.map(el => <DraggableImage key={el.id} element={el} onDelete={() => deleteElement(el.id)} onPositionChange={updateElementPosition} />)}
+                    </div>
+                </div>
+            );
+        };
+
+        const container = document.getElementById('root');
+        const root = ReactDOM.createRoot(container);
+        root.render(<App />);
+    </script>
+</body>
+</html>
