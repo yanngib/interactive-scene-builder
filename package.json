@@ -1,0 +1,12 @@
+{
+  "name": "react-scene-builder-backend",
+  "version": "1.0.0",
+  "description": "Backend server for the React Scene Builder",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
