@@ -11,9 +11,8 @@
       color: #333;
       display: flex;
       justify-content: center;
-      align-items: center;
-      height: 100vh;
       margin: 0;
+      padding: 2rem 0; /* Add some vertical padding */
     }
     #root {
       width: 100%;
@@ -60,6 +59,16 @@
     .controls button:hover:not(:disabled) {
       background-color: #166fe5;
     }
+    .render-controls {
+      display: flex;
+      justify-content: center;
+    }
+    .frames-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      justify-content: center;
+    }
     .scene-frame {
       width: 100%;
       height: 500px;
@@ -68,6 +77,14 @@
       position: relative;
       overflow: hidden;
       background-color: #e9f5ff;
+    }
+    .frame-title {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      margin: 0;
+      font-size: 1rem;
+      color: #666;
     }
     .draggable-image-container {
       position: absolute;
@@ -116,6 +133,20 @@
       line-height: 24px;
       text-align: center;
       box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    .description-content {
+      padding: 2.5rem 1rem 1rem 1rem;
+      text-align: left;
+      height: 100%;
+      overflow-y: auto;
+    }
+    .description-list {
+      list-style-type: none;
+      padding: 0;
+      margin: 0;
+    }
+    .description-list li {
+      margin-bottom: 0.75rem;
     }
   </style>
   <!-- React and Babel for JSX in the browser -->
@@ -300,6 +331,11 @@
         }
       };
 
+      const handleRender = () => {
+        // This will be implemented in a future step.
+        alert('Rendering scene...');
+      };
+
       // Combine permanent elements and the temporary one for rendering
       const allVisibleElements = pendingElement ? [...elements, pendingElement] : elements;
 
@@ -322,24 +358,51 @@
             <button onClick={loadScene}>Load Scene</button>
             <button onClick={resetScene}>Reset Scene</button>
           </div>
-          <div className="scene-frame">
-            {allVisibleElements.map(el => (
-              el.isLoading ? (
-                // For the pending placeholder, render a non-interactive version
-                <DraggableImage
-                  key={el.id}
-                  element={el}
-                />
-              ) : (
-                // For permanent elements, render the full interactive version
-                <DraggableImage
-                  key={el.id}
-                  element={el}
-                  onDelete={() => deleteElement(el.id)}
-                  onPositionChange={updateElementPosition}
-                />
-              )
-            ))}
+          <div className="frames-container">
+            <div className="scene-frame">
+              <h2 className="frame-title">Scene Editor</h2>
+              {allVisibleElements.map(el => (
+                el.isLoading ? (
+                  // For the pending placeholder, render a non-interactive version
+                  <DraggableImage
+                    key={el.id}
+                    element={el}
+                  />
+                ) : (
+                  // For permanent elements, render the full interactive version
+                  <DraggableImage
+                    key={el.id}
+                    element={el}
+                    onDelete={() => deleteElement(el.id)}
+                    onPositionChange={updateElementPosition}
+                  />
+                )
+              ))}
+            </div>
+
+            <div className="scene-frame">
+              <h2 className="frame-title">Scene Description</h2>
+              <div className="description-content">
+                <ul className="description-list">
+                  {elements.length > 0 ? (
+                    elements.map(el => (
+                      <li key={`desc-${el.id}`}>
+                        <strong>Prompt:</strong> "{el.name}"<br />
+                        <strong>Position:</strong> (X: {Math.round(el.x)}, Y: {Math.round(el.y)})
+                      </li>
+                    ))
+                  ) : (<li>No elements in the scene.</li>)}
+                </ul>
+              </div>
+            </div>
+
+            <div className="render-controls">
+              <button onClick={handleRender}>Render Scene</button>
+            </div>
+
+            <div className="scene-frame">
+              <h2 className="frame-title">Final Render</h2>
+            </div>
           </div>
         </div>
       );
