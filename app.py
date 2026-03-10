@@ -56,5 +56,33 @@ def generate_image():
         print(f"❌ An error occurred during image generation: {e}")
         return jsonify({'error': 'Image generation failed on the server.', 'details': str(e)}), 500
 
+@app.route('/render-scene', methods=['POST'])
+def render_scene():
+    """
+    Handles a POST request to generate a complete scene from a detailed description.
+    """
+    data = request.get_json()
+    prompt = data.get('prompt')
+
+    if not prompt:
+        return jsonify({'error': 'Scene description prompt is required'}), 400
+
+    if not PROJECT_ID:
+        return jsonify({'error': 'Vertex AI is not configured on the server.'}), 503
+
+    try:
+        model = ImageGenerationModel.from_pretrained("imagen-3.0-generate-001")
+        # We give a more artistic instruction for the final scene render
+        images = model.generate_images(
+            prompt=f"A vibrant and colorful illustration of a scene. The scene contains: {prompt}. The style should be cohesive and artistic.",
+            number_of_images=1
+        )
+        image_bytes = images[0]._image_bytes
+        base64_image = base64.b64encode(image_bytes).decode('utf-8')
+        return jsonify({'image_data': f'data:image/png;base64,{base64_image}'})
+    except Exception as e:
+        print(f"❌ An error occurred during scene rendering: {e}")
+        return jsonify({'error': 'Scene rendering failed on the server.', 'details': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=8080)

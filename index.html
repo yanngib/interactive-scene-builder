@@ -242,6 +242,10 @@
 
       const [inputValue, setInputValue] = React.useState('');
       const [isGenerating, setIsGenerating] = React.useState(false);
+      
+      // State for the final rendered image
+      const [renderedSceneImage, setRenderedSceneImage] = React.useState(null);
+      const [isRendering, setIsRendering] = React.useState(false);
 
       // Auto-save to localStorage whenever the permanent elements list changes
       React.useEffect(() => {
@@ -331,9 +335,44 @@
         }
       };
 
-      const handleRender = () => {
-        // This will be implemented in a future step.
-        alert('Rendering scene...');
+      const handleRender = async () => {
+        if (elements.length === 0) {
+          alert("There are no elements in the scene to render.");
+          return;
+        }
+
+        setIsRendering(true);
+        setRenderedSceneImage(null); // Clear previous render
+
+        // 1. Create a descriptive prompt from the elements
+        const sceneDescription = elements.map(el => {
+          // Simple position mapping
+          let yPos = el.y < 150 ? 'top' : (el.y > 350 ? 'bottom' : 'middle');
+          let xPos = el.x < 250 ? 'left' : (el.x > 500 ? 'right' : 'center');
+          let position = (yPos === 'middle' && xPos === 'center') ? 'in the center' : `at the ${yPos} ${xPos}`;
+          return `${el.name} ${position}`;
+        }).join(', ');
+
+        try {
+          // 2. Send the prompt to the new backend endpoint
+          const response = await fetch('/render-scene', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ prompt: sceneDescription })
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.error || 'Server error during rendering.');
+          }
+
+          // 3. Set the returned image to be displayed in the final render frame
+          setRenderedSceneImage(data.image_data);
+        } catch (error) {
+          alert(`Error rendering scene: ${error.message}`);
+        } finally {
+          setIsRendering(false);
+        }
       };
 
       // Combine permanent elements and the temporary one for rendering
@@ -352,7 +391,7 @@
               onKeyPress={(e) => e.key === 'Enter' && addElement()}
               disabled={isGenerating}
             />
-            <button onClick={addElement} disabled={isGenerating || !inputValue.trim()}>
+            <button onClick={addElement} disabled={isGenerating || isRendering || !inputValue.trim()}>
               {isGenerating ? 'Generating...' : 'Add Element'}
             </button>
             <button onClick={loadScene}>Load Scene</button>
@@ -397,11 +436,19 @@
             </div>
 
             <div className="render-controls">
-              <button onClick={handleRender}>Render Scene</button>
+              <button onClick={handleRender} disabled={isRendering || isGenerating}>
+                {isRendering ? 'Rendering...' : 'Render Scene'}
+              </button>
             </div>
 
             <div className="scene-frame">
               <h2 className="frame-title">Final Render</h2>
+              {isRendering && <div className="image-loading-overlay" style={{ backdropFilter: 'blur(4px)' }}></div>}
+              {renderedSceneImage ? (
+                <img src={renderedSceneImage} alt="Final rendered scene" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                !isRendering && <div style={{ paddingTop: '50px', color: '#888' }}>Click "Render Scene" to see the result</div>
+              )}
             </div>
           </div>
         </div>
