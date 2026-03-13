@@ -246,6 +246,7 @@
       // State for the final rendered image
       const [renderedSceneImage, setRenderedSceneImage] = React.useState(null);
       const [isRendering, setIsRendering] = React.useState(false);
+      const [renderedPrompt, setRenderedPrompt] = React.useState('');
 
       // Auto-save to localStorage whenever the permanent elements list changes
       React.useEffect(() => {
@@ -343,6 +344,7 @@
 
         setIsRendering(true);
         setRenderedSceneImage(null); // Clear previous render
+        setRenderedPrompt(''); // Clear previous prompt
 
         // 1. Create a descriptive prompt from the elements
         const sceneDescription = elements.map(el => {
@@ -352,6 +354,8 @@
           let position = (yPos === 'middle' && xPos === 'center') ? 'in the center' : `at the ${yPos} ${xPos}`;
           return `${el.name} ${position}`;
         }).join(', ');
+
+        setRenderedPrompt(sceneDescription);
 
         try {
           // 2. Send the prompt to the new backend endpoint
@@ -445,11 +449,16 @@
               <h2 className="frame-title">Final Render</h2>
               {isRendering && <div className="image-loading-overlay" style={{ backdropFilter: 'blur(4px)' }}></div>}
               {renderedSceneImage ? (
-                <img src={renderedSceneImage} alt="Final rendered scene" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <img src={renderedSceneImage} alt="Final rendered scene" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                !isRendering && <div style={{ paddingTop: '50px', color: '#888' }}>Click "Render Scene" to see the result</div>
+                !isRendering && <div style={{ paddingTop: '50px', color: '#888' }}>Click "Render Scene" to see the result.</div>
               )}
             </div>
+            {renderedPrompt && !isRendering && renderedSceneImage && (
+              <p style={{ background: '#e9f5ff', border: '1px solid #ccc', color: '#333', padding: '12px', borderRadius: '6px', fontSize: '0.9rem', margin: '1rem 0 0 0', textAlign: 'left' }}>
+                <strong>Prompt Used:</strong> {renderedPrompt}
+              </p>
+            )}
           </div>
         </div>
       );
